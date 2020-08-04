@@ -1,1 +1,52 @@
-#test
+- name: Build project
+  hosts: build
+  vars:
+    - project_path: /opt/project
+  become: yes
+
+  tasks:
+  - name: Ensure git package is present
+    apt:
+      name: git
+      state: present
+  - name: Clone git project repo
+    git:
+      repo: 'https://github.com/boxfuse/boxfuse-sample-java-war-hello.git'
+      dest: "{{project_path}}"
+  - name: Ensure maven package is present
+    apt:
+      name: maven
+      state: present
+  - name: Building project
+    shell: "mvn -f {{project_path}}/pom.xml clean package"
+  - name: Fetch the file from build to master
+    fetch:
+      src: /opt/project/target/hello-1.0.war
+      dest: /opt/artifact/
+      flat: yes
+
+- name: Prepare prod env
+  hosts: prod
+  become: yes
+
+  tasks:
+  - name: Ensure default-jdk package is present
+    apt:
+      name: default-jdk
+      state: present
+  - name: Ensure tomcat9 package is present
+    apt:
+      name: tomcat9
+      state: present
+  - name: Ensure tomcat9 service is started
+    service:
+      name: tomcat9
+      state: started
+  - name: Copy the file from master to prod
+    copy:
+      src: /opt/artifact/hello-1.0.war
+      dest: /var/lib/tomcat9/webapps
+  - name: Ensure tomcat9 service is restarted
+    service:
+      name: tomcat9
+      state: restarted
